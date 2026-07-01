@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, TypeVar
@@ -39,7 +40,7 @@ Entrez.email = "your.email@example.com"
 Entrez.api_key = os.environ.get("NCBI_API_KEY") or "16f45c16cb287905a3bb04dbaf57460ccd09"
 
 CACHE_DIR = Path(".extracted_cache")
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219")
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
 
 
 class PaperEntities(BaseModel):
@@ -66,7 +67,19 @@ def retry_call(fn, *, attempts: int = 4, base_delay: float = 1.5) -> Any:
             time.sleep(base_delay * (2**attempt))
 
 
+def normalize_pubmed_query(query: str) -> str:
+    cleaned = query.strip()
+    if re.search(r"\bai\b", cleaned, flags=re.IGNORECASE):
+        ai_query = '("artificial intelligence"[Title/Abstract] OR AI[Title/Abstract])'
+        rest = re.sub(r"\bai\b", "", cleaned, flags=re.IGNORECASE).strip()
+        if rest and not re.search(r"[\[\]()\"]|\bAND\b|\bOR\b|\bNOT\b", rest, re.IGNORECASE):
+            rest = f'"{rest}"[Title/Abstract]'
+        return f"{ai_query} AND ({rest})" if rest else ai_query
+    return cleaned
+
+
 def fetch_pubmed_ids(query: str, n: int) -> list[str]:
+    query = normalize_pubmed_query(query)
     ids: list[str] = []
     page_size = min(200, max(1, n))
     for start in range(0, n, page_size):
@@ -154,6 +167,11 @@ def make_anthropic_client() -> anthropic.Anthropic:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is required for uncached Anthropic calls.")
+    if not api_key.startswith("sk-ant-"):
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY does not look like an Anthropic key. "
+            "Check .env and use a key that starts with 'sk-ant-'."
+        )
     return anthropic.Anthropic(api_key=api_key)
 
 
