@@ -1,0 +1,4 @@
+anthropic>=0.45.0
+biopython>=1.84
+gradio>=5.0.0
+pydantic>=2.7.0
