@@ -178,9 +178,9 @@ def call_claude(client: anthropic.Anthropic, schema: type[T], system: str, promp
                 max_tokens=1200,
                 system=system,
                 messages=[{"role": "user", "content": prompt}],
-                response_format=schema,
+                output_format=schema,
             )
-        except AttributeError:
+        except (AttributeError, TypeError):
             response = client.messages.create(
                 model=MODEL,
                 max_tokens=1200,
