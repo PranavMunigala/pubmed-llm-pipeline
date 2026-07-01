@@ -15,13 +15,31 @@ from Bio import Entrez
 from Bio.Entrez.Parser import ValidationError
 from pydantic import BaseModel, Field, ValidationError as PydanticValidationError
 
+T = TypeVar("T", bound=BaseModel)
+
+
+def load_env_file(path: Path = Path(".env")) -> None:
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_env_file()
+
 
 Entrez.email = "your.email@example.com"
 Entrez.api_key = os.environ.get("NCBI_API_KEY") or "16f45c16cb287905a3bb04dbaf57460ccd09"
 
 CACHE_DIR = Path(".extracted_cache")
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219")
-T = TypeVar("T", bound=BaseModel)
 
 
 class PaperEntities(BaseModel):
